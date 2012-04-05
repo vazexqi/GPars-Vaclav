@@ -42,8 +42,18 @@ public abstract class AbstractLoopingActor extends Actor {
      */
     private AsyncMessagingCore core;
 
-    final AsyncMessagingCore getCore() {
+    public final AsyncMessagingCore getCore() {
         return core;
+    }
+
+    private Closure code;
+
+    public Closure getCode() {
+        return code;
+    }
+
+    public void setCore(final AsyncMessagingCore actorAsyncMessagingCore) {
+        this.core = actorAsyncMessagingCore;
     }
 
     /**
@@ -52,69 +62,8 @@ public abstract class AbstractLoopingActor extends Actor {
      * @param code Code to run on each message
      */
     protected final void initialize(final Closure code) {
-
-        //noinspection OverlyComplexAnonymousInnerClass
-        this.core = new AsyncMessagingCore(parallelGroup.getThreadPool()) {
-            @Override
-            protected void registerError(final Throwable e) {
-                if (e instanceof InterruptedException) {
-                    handleInterrupt((InterruptedException) e);
-                } else {
-                    handleException(e);
-                }
-                terminate();
-            }
-
-            @Override
-            protected void handleMessage(final Object message) {
-                if (message == START_MESSAGE) handleStart();
-                else {
-                    if (message == TIMEOUT_MESSAGE) {
-                        final ActorTimerTask localTimerTask = currentTimerTask;
-                        if (localTimerTask != null) {
-                            cancelCurrentTimeoutTask();
-                            if (timeoutCounter != localTimerTask.getId()) return;  //ignore obsolete timeout messages
-                        } else return;
-                        handleTimeout();
-                    } else {
-                        if (currentTimerTask != null) cancelCurrentTimeoutTask();
-                    }
-                    timeoutCounter = (timeoutCounter + 1) % Integer.MAX_VALUE;
-
-                    if (terminatingFlag || message == STOP_MESSAGE) {
-                        if (!terminatedFlag) {
-                            handleTermination();
-                            terminatedFlag = true;
-                            getJoinLatch().bindUnique(null);
-                        }
-                    } else {
-                        final ActorMessage actorMessage = (ActorMessage) message;
-                        try {
-                            runEnhancedWithoutRepliesOnMessages(actorMessage, code, actorMessage.getPayLoad());
-                        } finally {
-                            currentSender = null;
-                        }
-                    }
-                }
-            }
-
-            @Override
-            protected boolean continueProcessingMessages() {
-                return isActive();
-            }
-
-            @Override
-            protected void threadAssigned() {
-                registerCurrentActorWithThread(AbstractLoopingActor.this);
-                currentThread = Thread.currentThread();
-            }
-
-            @Override
-            protected void threadUnassigned() {
-                deregisterCurrentActorWithThread();
-                currentThread = null;
-            }
-        };
+        this.code = code;
+        this.core = new ActorAsyncMessagingCore(code);
     }
 
     /**
@@ -293,5 +242,79 @@ public abstract class AbstractLoopingActor extends Actor {
         assert message != null;
         currentSender = message.getSender();
         code.call(arguments);
+    }
+
+
+    public class ActorAsyncMessagingCore extends AsyncMessagingCore {
+        private final Closure code;
+
+        public Closure getCode() {
+            return code;
+        }
+
+        public ActorAsyncMessagingCore(final Closure code) {
+            super(AbstractLoopingActor.this.parallelGroup.getThreadPool());
+            this.code = code;
+        }
+
+        @Override
+        protected void registerError(final Throwable e) {
+            if (e instanceof InterruptedException) {
+                handleInterrupt((InterruptedException) e);
+            } else {
+                handleException(e);
+            }
+            terminate();
+        }
+
+        @Override
+        protected void handleMessage(final Object message) {
+            if (message == START_MESSAGE) handleStart();
+            else {
+                if (message == TIMEOUT_MESSAGE) {
+                    final ActorTimerTask localTimerTask = currentTimerTask;
+                    if (localTimerTask != null) {
+                        cancelCurrentTimeoutTask();
+                        if (timeoutCounter != localTimerTask.getId()) return;  //ignore obsolete timeout messages
+                    } else return;
+                    handleTimeout();
+                } else {
+                    if (currentTimerTask != null) cancelCurrentTimeoutTask();
+                }
+                timeoutCounter = (timeoutCounter + 1) % Integer.MAX_VALUE;
+
+                if (terminatingFlag || message == STOP_MESSAGE) {
+                    if (!terminatedFlag) {
+                        handleTermination();
+                        terminatedFlag = true;
+                        getJoinLatch().bindUnique(null);
+                    }
+                } else {
+                    final ActorMessage actorMessage = (ActorMessage) message;
+                    try {
+                        runEnhancedWithoutRepliesOnMessages(actorMessage, code, actorMessage.getPayLoad());
+                    } finally {
+                        currentSender = null;
+                    }
+                }
+            }
+        }
+
+        @Override
+        protected boolean continueProcessingMessages() {
+            return isActive();
+        }
+
+        @Override
+        protected void threadAssigned() {
+            registerCurrentActorWithThread(AbstractLoopingActor.this);
+            currentThread = Thread.currentThread();
+        }
+
+        @Override
+        protected void threadUnassigned() {
+            deregisterCurrentActorWithThread();
+            currentThread = null;
+        }
     }
 }

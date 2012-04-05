@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
  */
 public abstract class AsyncMessagingCore implements Runnable {
 
-    private Pool threadPool;
+    protected Pool threadPool;
 
     /**
      * Fair agents give up the thread after processing each message, non-fair agents keep a thread until their message queue is empty.
@@ -76,16 +76,16 @@ public abstract class AsyncMessagingCore implements Runnable {
     /**
      * Incoming messages
      */
-    private final MessageQueue queue = new DefaultMessageQueue();
+    protected final MessageQueue queue = new DefaultMessageQueue();
 
     /**
      * Indicates, whether there's an active thread handling a message inside the agent's body
      */
     @SuppressWarnings({"FieldMayBeFinal", "unused"}) //  TODO:  Eclipse requires this to be tagged as unused.
-    private volatile int active = AsyncMessagingCore.PASSIVE;
-    private static final AtomicIntegerFieldUpdater<AsyncMessagingCore> activeUpdater = AtomicIntegerFieldUpdater.newUpdater(AsyncMessagingCore.class, "active");
-    private static final int PASSIVE = 0;
-    private static final int ACTIVE = 1;
+    protected volatile int active = AsyncMessagingCore.PASSIVE;
+    protected static final AtomicIntegerFieldUpdater<AsyncMessagingCore> activeUpdater = AtomicIntegerFieldUpdater.newUpdater(AsyncMessagingCore.class, "active");
+    protected static final int PASSIVE = 0;
+    protected static final int ACTIVE = 1;
 
 
     /**
@@ -103,7 +103,7 @@ public abstract class AsyncMessagingCore implements Runnable {
     /**
      * Schedules processing of a next message, if there are some and if there isn't an active thread handling a message at the moment
      */
-    void schedule() {
+    protected void schedule() {
         if (!queue.isEmpty() && activeUpdater.compareAndSet(this, PASSIVE, ACTIVE)) {
             threadPool.execute(this);
         }
@@ -123,7 +123,7 @@ public abstract class AsyncMessagingCore implements Runnable {
      */
     @Override
     @SuppressWarnings({"CatchGenericClass", "ThrowCaughtLocally", "OverlyBroadCatchBlock"})
-    public final void run() {
+    public void run() {
         try {
             threadAssigned();
             if (!continueProcessingMessages()) return;
