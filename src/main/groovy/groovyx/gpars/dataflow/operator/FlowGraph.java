@@ -109,6 +109,8 @@ public class FlowGraph {
                 while (activeProcessors > 0) {
                     nonActiveCond.await();
                 }
+            assert activeProcessors == 0;
+            assert messages == 0;
 //            }
         } finally {
             lock.unlock();

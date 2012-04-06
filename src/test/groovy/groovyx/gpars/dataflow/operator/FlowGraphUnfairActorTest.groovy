@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 public class FlowGraphUnfairActorTest extends GroovyTestCase {
 
-    protected FlowGraph createFlowGraphInstance(){
+    protected FlowGraph createFlowGraphInstance() {
         return new FlowGraph()
     }
 
@@ -50,8 +50,40 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
 
         fGraph.waitForAll()
 
-        assert 65 == d.val
-        assert 4000 == e.val
+        // It is more important that the values are bound by this point.
+        // Using getVal() to compare the values is wrong because getVal() will block and wait until it's ready
+        // Everything must be *done* after waitForAll()
+        assert d.isBound()
+        assert e.isBound()
+    }
+
+    public void testInverseFlowGraphSingleOperator() {
+        println("\n\ntestFlowGraphSingleOperator")
+
+        final DataflowVariable a = new DataflowVariable()
+        final DataflowVariable b = new DataflowVariable()
+        final DataflowQueue c = new DataflowQueue()
+        final DataflowVariable d = new DataflowVariable()
+        final DataflowQueue e = new DataflowQueue()
+
+        FlowGraph fGraph = createFlowGraphInstance()
+        def op = fGraph.operator([a, b, c], [d, e]) {x, y, z ->
+            bindOutput 0, x + y + z
+            bindOutput 1, x * y * z
+        }
+
+        a << 5
+        b << 20
+        c << 40
+
+        // Without this statement the values should not be bound yet
+        // fGraph.waitForAll()
+
+        // It is more important that the values are bound by this point.
+        // Using getVal() to compare the values is wrong because getVal() will block and wait until it's ready
+        // Everything must be *done* after waitForAll()
+        assert !d.isBound()
+        assert !e.isBound()
     }
 
     public void testFlowGraphOperatorWithDoubleWaitOnChannel() {
