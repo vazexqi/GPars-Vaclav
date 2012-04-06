@@ -20,6 +20,7 @@ import groovyx.gpars.dataflow.Dataflow
 import groovyx.gpars.dataflow.DataflowChannel
 import groovyx.gpars.dataflow.DataflowQueue
 import groovyx.gpars.dataflow.DataflowVariable
+import java.util.concurrent.atomic.AtomicInteger
 
 public class FlowGraphFairActorTest extends GroovyTestCase {
 
@@ -221,12 +222,37 @@ public class FlowGraphFairActorTest extends GroovyTestCase {
         assert channels.get(LIMIT).getVal() == 1;
     }
 
+    public void testFlowGraphForkingOperators() {
+        final DataflowQueue a = new DataflowQueue()
+        final DataflowQueue b = new DataflowQueue()
+        final DataflowQueue c = new DataflowQueue()
+        final DataflowQueue d = new DataflowQueue()
+
+        FlowGraph fGraph = new FlowGraph(true)
+
+        def op1 = fGraph.operator([a], [b, c, d], 5) {x ->
+            bindAllOutputs x
+        }
+
+        final IntRange range = 1..100
+        range.each {a << it}
+
+        fGraph.waitForAll()
+
+        def bs = range.collect {b.val}
+        def cs = range.collect {c.val}
+        def ds = range.collect {d.val}
+        assert bs.size() == range.to
+        assert cs.size() == range.to
+        assert ds.size() == range.to
+    }
+
     public void testFlowGraphLongRingOperators() {
         println("\n\ntestFlowGraphLongRingOperators")
 
-        int LIMIT = 20 // Number of channels
+        int LIMIT = 50 // Number of channels
         int TIMES_AROUND_RING = 3
-        int globalCounter = 0
+        AtomicInteger globalCounter = new AtomicInteger()
 
         List<DataflowChannel> channels = new ArrayList<DataflowChannel>()
 
@@ -244,7 +270,7 @@ public class FlowGraphFairActorTest extends GroovyTestCase {
                 if (localCounter < TIMES_AROUND_RING) {
                     bindOutput localCounter
                     localCounter++
-                    globalCounter++
+                    globalCounter.incrementAndGet()
                 }
             }
         }
@@ -260,7 +286,35 @@ public class FlowGraphFairActorTest extends GroovyTestCase {
         //
 
         fGraph.waitForAll()
-        assert globalCounter == LIMIT * TIMES_AROUND_RING
+        assert globalCounter.get() == LIMIT * TIMES_AROUND_RING
+    }
+
+    public void testFlowGraphCompletedBeforeWaitForAll(){
+        println("\n\ntestFlowGraphCompletedBeforeWaitForAll")
+
+        final DataflowVariable a = new DataflowVariable()
+        final DataflowVariable b = new DataflowVariable()
+        final DataflowQueue c = new DataflowQueue()
+        final DataflowVariable d = new DataflowVariable()
+        final DataflowQueue e = new DataflowQueue()
+
+        FlowGraph fGraph = new FlowGraph(true)
+        def op = fGraph.operator([a, b, c], [d, e]) {x, y, z ->
+            bindOutput 0, x + y + z
+            bindOutput 1, x * y * z
+        }
+
+        a << 5
+        b << 20
+        c << 40
+
+        sleep(1000)
+
+        fGraph.waitForAll()
+
+        assert 65 == d.val
+        assert 4000 == e.val
+
     }
 
 }
