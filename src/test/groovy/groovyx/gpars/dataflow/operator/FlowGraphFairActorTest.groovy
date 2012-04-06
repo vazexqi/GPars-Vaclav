@@ -2,7 +2,7 @@
 //
 // Copyright © 2008-11  The original author or authors
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License")
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -21,7 +21,7 @@ import groovyx.gpars.dataflow.DataflowChannel
 import groovyx.gpars.dataflow.DataflowQueue
 import groovyx.gpars.dataflow.DataflowVariable
 
-public class FlowGraphTest extends GroovyTestCase {
+public class FlowGraphFairActorTest extends GroovyTestCase {
 
     public void testFlowGraphSingleOperator() {
         println("\n\ntestFlowGraphSingleOperator")
@@ -32,7 +32,7 @@ public class FlowGraphTest extends GroovyTestCase {
         final DataflowVariable d = new DataflowVariable()
         final DataflowQueue e = new DataflowQueue()
 
-        FlowGraph fGraph = new FlowGraph();
+        FlowGraph fGraph = new FlowGraph(true)
         def op = fGraph.operator([a, b, c], [d, e]) {x, y, z ->
             bindOutput 0, x + y + z
             bindOutput 1, x * y * z
@@ -42,7 +42,7 @@ public class FlowGraphTest extends GroovyTestCase {
         b << 20
         c << 40
 
-        fGraph.waitForAll();
+        fGraph.waitForAll()
 
         assert 65 == d.val
         assert 4000 == e.val
@@ -54,7 +54,7 @@ public class FlowGraphTest extends GroovyTestCase {
         final DataflowQueue a = new DataflowQueue()
         final DataflowQueue b = new DataflowQueue()
 
-        FlowGraph fGraph = new FlowGraph();
+        FlowGraph fGraph = new FlowGraph(true)
 
         def op = fGraph.operator([a, a], [b]) {x, y ->
             bindOutput 0, x + y
@@ -78,7 +78,7 @@ public class FlowGraphTest extends GroovyTestCase {
         final DataflowQueue b = new DataflowQueue()
         final DataflowQueue c = new DataflowQueue()
 
-        FlowGraph fGraph = new FlowGraph();
+        FlowGraph fGraph = new FlowGraph(true)
 
         def op = fGraph.operator([a, b], [c]) {x, y ->
             bindOutput 0, 2 * x + y
@@ -104,7 +104,7 @@ public class FlowGraphTest extends GroovyTestCase {
         a << 4
         a << 5
 
-        FlowGraph fGraph = new FlowGraph();
+        FlowGraph fGraph = new FlowGraph(true)
 
         def op1 = fGraph.operator([a], [b]) {v ->
             bindOutput 2 * v
@@ -114,7 +114,7 @@ public class FlowGraphTest extends GroovyTestCase {
             bindOutput v + 1
         }
 
-        fGraph.waitForAll();
+        fGraph.waitForAll()
 
         assert 3 == c.val
         assert 5 == c.val
@@ -124,25 +124,25 @@ public class FlowGraphTest extends GroovyTestCase {
     }
 
     public void testFlowGraphExternalOutputs() {
-        println("\n\ntestFlowGraphExternalOutputs");
+        println("\n\ntestFlowGraphExternalOutputs")
 
-        final DataflowChannel channel1 = new DataflowQueue();
-        final DataflowChannel channel2 = new DataflowQueue();
-        final DataflowChannel channel3 = new DataflowQueue();
-        final List<Integer> outputs = new ArrayList<Integer>();
+        final DataflowChannel channel1 = new DataflowQueue()
+        final DataflowChannel channel2 = new DataflowQueue()
+        final DataflowChannel channel3 = new DataflowQueue()
+        final List<Integer> outputs = new ArrayList<Integer>()
 
-        FlowGraph fGraph = new FlowGraph();
+        FlowGraph fGraph = new FlowGraph(true)
 
         final DataflowProcessor operator1 = fGraph.operator([channel1], [channel2]) { input ->
             bindOutput input * input
         }
 
         final DataflowProcessor operator2 = fGraph.operator([channel2], [channel3]) { input ->
-            bindOutput input - 1;
+            bindOutput input - 1
         }
 
         final DataflowProcessor operator3 = fGraph.operator([channel3], []) { input ->
-            outputs.add(input);
+            outputs.add(input)
         }
 
         channel1 << 1
@@ -150,50 +150,114 @@ public class FlowGraphTest extends GroovyTestCase {
         channel2 << 3
         channel3 << 4
 
-        fGraph.waitForAll();
+        fGraph.waitForAll()
 
-        assertEquals("Output size does not match", 4, outputs.size());
+        assertEquals("Output size does not match", 4, outputs.size())
     }
 
     public void testFlowGraphBranchingGraph() {
-        println("\n\ntestFlowGraphBranchingGraph");
+        println("\n\ntestFlowGraphBranchingGraph")
 
-        final DataflowChannel channel1 = new DataflowQueue();
-        final DataflowChannel channel2 = new DataflowQueue();
+        final DataflowChannel channel1 = new DataflowQueue()
+        final DataflowChannel channel2 = new DataflowQueue()
 
-        final DataflowChannel branch1 = new DataflowQueue();
-        final DataflowChannel branch2 = new DataflowQueue();
+        final DataflowChannel branch1 = new DataflowQueue()
+        final DataflowChannel branch2 = new DataflowQueue()
 
-        final List<Integer> outputs = new ArrayList<Integer>();
+        final List<Integer> outputs = new ArrayList<Integer>()
 
-        FlowGraph fGraph = new FlowGraph();
+        FlowGraph fGraph = new FlowGraph(true)
 
         final DataflowProcessor op1 = fGraph.operator([channel1], [channel2]) { input ->
-            bindOutput input * input;
+            bindOutput input * input
         }
 
-        final List branchStreams = Arrays.asList(branch1, branch2);
+        final List branchStreams = Arrays.asList(branch1, branch2)
 
         final DataflowProcessor op2 = fGraph.operator([channel2], branchStreams) { input ->
-            bindAllOutputsAtomically input;
+            bindAllOutputsAtomically input
         }
 
         final DataflowProcessor op3 = fGraph.operator([branch1], []) { input ->
-            outputs.add(input * 2);
+            outputs.add(input * 2)
         }
 
         final DataflowProcessor op4 = fGraph.operator([branch2], []) { input ->
-            outputs.add(input / 2);
+            outputs.add(input / 2)
         }
 
-        channel1.bind(1);
-        channel1.bind(2);
-        channel1.bind(3);
-        channel1.bind(4);
+        channel1.bind(1)
+        channel1.bind(2)
+        channel1.bind(3)
+        channel1.bind(4)
 
-        fGraph.waitForAll();
+        fGraph.waitForAll()
 
-        assertEquals("Output size does not match", 8, outputs.size());
+        assertEquals("Output size does not match", 8, outputs.size())
+    }
+
+    public void testFlowGraphLongLinkedOperators() {
+        println("\n\ntestFlowGraphLongLinkedOperators")
+
+        int LIMIT = 20; // Number of channels
+
+        List<DataflowChannel> channels = new ArrayList<DataflowChannel>()
+
+        FlowGraph fGraph = new FlowGraph(true)
+
+        channels.add(new DataflowQueue()) // First channel
+
+        for (int i = 0; i < LIMIT; i++) {
+            channels.add(new DataflowQueue())
+
+            DataflowProcessor op = fGraph.operator([channels.get(i)], [channels.get(i + 1)]) {input ->
+                bindOutput input
+            }
+        }
+        channels.get(0) << 1
+
+        fGraph.waitForAll()
+
+        assert channels.get(LIMIT).getVal() == 1;
+    }
+
+    public void testFlowGraphLongRingOperators() {
+        println("\n\ntestFlowGraphLongRingOperators")
+
+        int LIMIT = 20; // Number of channels
+        int TIMES_AROUND_RING = 3;
+
+        List<DataflowChannel> channels = new ArrayList<DataflowChannel>()
+
+        FlowGraph fGraph = new FlowGraph(true)
+
+        for (int i = 0; i < LIMIT; i++)
+            channels.add(new DataflowQueue())
+
+        for (int i = 0; i < LIMIT; i++) {
+            DataflowChannel input = channels.get(i)
+            DataflowChannel output = channels.get((i + 1) % LIMIT)
+
+            int counter = 0; // Close over this variable
+            fGraph.operator([input], [output]) { value ->
+                if (counter <= TIMES_AROUND_RING) {
+                    bindOutput counter
+                    counter++
+                }
+            }
+        }
+
+        channels.get(0) << 1
+
+        // This is the topology
+        //   ---op1 ---
+        //  |          |
+        //  ch0       ch1
+        //  |          |
+        //   ---op2 ---
+        //
+
+        fGraph.waitForAll()
     }
 
 }

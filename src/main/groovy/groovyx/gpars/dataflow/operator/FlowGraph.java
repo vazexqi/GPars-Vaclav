@@ -17,6 +17,7 @@
 package groovyx.gpars.dataflow.operator;
 
 import groovy.lang.Closure;
+import groovyx.gpars.actor.ActorMessage;
 import groovyx.gpars.group.DefaultPGroup;
 import groovyx.gpars.group.PGroup;
 import net.jcip.annotations.GuardedBy;
@@ -33,16 +34,26 @@ import java.util.concurrent.locks.ReentrantLock;
 public class FlowGraph {
     private final List<DataflowProcessor> processors;
     private final PGroup pGroup;
+    private boolean isFair;
 
     final Lock lock = new ReentrantLock();
-    final Condition nonActive = lock.newCondition();
+    final Condition nonActiveCond = lock.newCondition();
+    final Condition noMessagesLeftCond = lock.newCondition();
 
     @GuardedBy("lock")
     private int activeProcessors = 0;
 
+    @GuardedBy("lock")
+    private int messages = 0;
+
     public FlowGraph() {
         processors = new ArrayList<DataflowProcessor>();
         pGroup = new DefaultPGroup();
+    }
+
+    public FlowGraph(boolean isFair) {
+        this();
+        isFair = true;
     }
 
     public void decrementActiveProcessors() {
@@ -51,8 +62,7 @@ public class FlowGraph {
             activeProcessors--;
             assert activeProcessors >= 0;
             if (activeProcessors == 0)
-                nonActive.signal();
-
+                nonActiveCond.signal();
         } finally {
             lock.unlock();
         }
@@ -68,11 +78,38 @@ public class FlowGraph {
         }
     }
 
+    public void messageProcessed() {
+        lock.lock();
+        try {
+            messages--;
+            assert messages >= 0;
+            if (messages == 0)
+                noMessagesLeftCond.signal();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void messageArrived() {
+        lock.lock();
+        try {
+            messages++;
+            assert messages >= 0;
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public void waitForAll() throws InterruptedException {
         lock.lock();
         try {
-            while (activeProcessors > 0)
-                nonActive.await();
+            //TODO: Is this sufficient? Is this correct?
+            while (messages > 0) {
+                noMessagesLeftCond.await();
+                while (activeProcessors > 0) {
+                    nonActiveCond.await();
+                }
+            }
         } finally {
             lock.unlock();
         }
@@ -92,6 +129,9 @@ public class FlowGraph {
 
         final DataflowOperator operator = new DataflowOperator(pGroup, params, code);
         substituteOperatorCore(operator);
+
+        if (isFair) operator.actor.makeFair();
+
         return operator.start();
     }
 
@@ -103,6 +143,9 @@ public class FlowGraph {
 
         final DataflowOperator operator = new DataflowOperator(pGroup, params, code);
         substituteOperatorCore(operator);
+
+        if (isFair) operator.actor.makeFair();
+
         return operator.start();
     }
 
@@ -115,17 +158,30 @@ public class FlowGraph {
 
             void becomeActive() {
                 System.err.println(processorActor + " became active");
-                incrementActiveProcessors();
+                FlowGraph.this.incrementActiveProcessors();
             }
 
             void becomePassive() {
                 System.err.println(processorActor + " became passive");
-                decrementActiveProcessors();
+                FlowGraph.this.decrementActiveProcessors();
+            }
+
+            void messageArrived(Object message) {
+                final ActorMessage actorMessage = (ActorMessage) message;
+                System.err.println(message + " arrived");
+                FlowGraph.this.messageArrived();
+            }
+
+            void messageProcessed(Object message) {
+                final ActorMessage actorMessage = (ActorMessage) message;
+                System.err.println(message + " processed");
+                FlowGraph.this.messageProcessed();
             }
 
             @Override
             public void store(final Object message) {
                 queue.add(message != null ? message : NullObject.getNullObject());
+                messageArrived(message);
                 if (activeUpdater.compareAndSet(this, PASSIVE, ACTIVE)) {
                     becomeActive();
                     threadPool.execute(this);
@@ -153,6 +209,7 @@ public class FlowGraph {
                     Object message = queue.poll();
                     while (message != null) {
                         handleMessage(message);
+                        messageProcessed(message);
                         if (Thread.interrupted()) throw new InterruptedException();
                         if (isFair() || !continueProcessingMessages()) break;
                         message = queue.poll();
