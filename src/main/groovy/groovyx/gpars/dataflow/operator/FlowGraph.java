@@ -41,10 +41,10 @@ public class FlowGraph {
     final Condition noMessagesLeftCond = lock.newCondition();
 
     @GuardedBy("lock")
-    private int activeProcessors = 0;
+    private volatile int activeProcessors = 0;
 
     @GuardedBy("lock")
-    private int messages = 0;
+    private volatile int messages = 0;
 
     public FlowGraph() {
         processors = new ArrayList<DataflowProcessor>();
@@ -104,12 +104,12 @@ public class FlowGraph {
         lock.lock();
         try {
             //TODO: Is this sufficient? Is this correct?
-            while (messages > 0) {
-                noMessagesLeftCond.await();
+//            while (messages > 0) {
+//                noMessagesLeftCond.await();
                 while (activeProcessors > 0) {
                     nonActiveCond.await();
                 }
-            }
+//            }
         } finally {
             lock.unlock();
         }
@@ -157,24 +157,24 @@ public class FlowGraph {
         processorActor.setCore(processorActor.new ActorAsyncMessagingCore(code) {
 
             void becomeActive() {
-                System.err.println(processorActor + " became active");
+//                System.err.println(processorActor + " became active");
                 FlowGraph.this.incrementActiveProcessors();
             }
 
             void becomePassive() {
-                System.err.println(processorActor + " became passive");
+//                System.err.println(processorActor + " became passive");
                 FlowGraph.this.decrementActiveProcessors();
             }
 
             void messageArrived(Object message) {
-                final ActorMessage actorMessage = (ActorMessage) message;
-                System.err.println(message + " arrived");
+//                final ActorMessage actorMessage = (ActorMessage) message;
+//                System.err.println(message + " arrived");
                 FlowGraph.this.messageArrived();
             }
 
             void messageProcessed(Object message) {
-                final ActorMessage actorMessage = (ActorMessage) message;
-                System.err.println(message + " processed");
+//                final ActorMessage actorMessage = (ActorMessage) message;
+//                System.err.println(message + " processed");
                 FlowGraph.this.messageProcessed();
             }
 
