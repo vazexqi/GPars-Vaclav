@@ -17,7 +17,6 @@
 package groovyx.gpars.dataflow.operator;
 
 import groovy.lang.Closure;
-import groovyx.gpars.actor.ActorMessage;
 import groovyx.gpars.group.DefaultPGroup;
 import groovyx.gpars.group.PGroup;
 import net.jcip.annotations.GuardedBy;
@@ -100,21 +99,36 @@ public class FlowGraph {
         }
     }
 
+    /**
+     * This is deeply linked to the internals of the DataflowProcessorActor. The terminating condition is the pair (No
+     * Active Processors, No More Messages). Because of the way that DataflowProcessorActors work, it is sufficient to
+     * check first that all actors are no longer active. Then we check the number of messages left. If the number of
+     * messages left is greater than zero, the semantics of DataflowProcessorActor means that <i>eventually</i> at least
+     * one actor will wake up to process the message.
+     * <p/>
+     * In general, this assumption is not true of all actor systems. Some actor systems (even the Actor based class in
+     * GPars) can leave messages in the mailbox even when they are technically done already. In those cases, it is not
+     * possible to use this method for checking termination.
+     *
+     * @throws InterruptedException
+     */
     public void waitForAll() throws InterruptedException {
         lock.lock();
         try {
-            //TODO: Is this sufficient? Is this correct?
-//            while (messages > 0) {
-//                noMessagesLeftCond.await();
-                while (activeProcessors > 0) {
-                    nonActiveCond.await();
-                }
+            while (activeProcessors > 0) {
+                nonActiveCond.await();
+
+                if (messages > 0) continue; // Eventually some actor will wake up to process the remaining messages
+            }
+
+        } finally
+
+        {
+            lock.unlock();
             assert activeProcessors == 0;
             assert messages == 0;
-//            }
-        } finally {
-            lock.unlock();
         }
+
     }
 
 
