@@ -16,13 +16,18 @@
 
 package groovyx.gpars.dataflow.operator
 
-import groovyx.gpars.dataflow.Dataflow
 import groovyx.gpars.dataflow.DataflowChannel
 import groovyx.gpars.dataflow.DataflowQueue
 import groovyx.gpars.dataflow.DataflowVariable
 
 import java.util.concurrent.atomic.AtomicInteger
 
+/**
+ * There are two categories of tests: normal tests and inverse tests. Normal tests check to see that when we use
+ * FlowGraph's waitForAll(), we get the right results. Inverse tests check to see that when we <b>don't</b> use
+ * FlowGraph's waitForAll() that we don't get the desired results. This ensures that FlowGraph is responsible for both
+ * generating good behavior and also avoiding bad behavior.
+ */
 public class FlowGraphUnfairActorTest extends GroovyTestCase {
 
     protected FlowGraph createFlowGraphInstance() {
@@ -114,20 +119,43 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
 
         final DataflowQueue a = new DataflowQueue()
         final DataflowQueue b = new DataflowQueue()
-        final DataflowQueue c = new DataflowQueue()
+        final DataflowVariable c = new DataflowVariable()
 
         FlowGraph fGraph = createFlowGraphInstance()
 
         def op = fGraph.operator([a, b], [c]) {x, y ->
+            sleep(500) // deliberate delay
             bindOutput 0, 2 * x + y
         }
 
-        Dataflow.task { a << 5 }
-        Dataflow.task { b << 20 }
+        a << 5
+        b << 20
 
         fGraph.waitForAll()
 
-        assert 30 == c.val
+        assert c.isBound()
+    }
+
+    public void testInverseFlowGraphNonCommutativeOperator() {
+        println("\n\ntestInverseFlowGraphNonCommutativeOperator")
+
+        final DataflowQueue a = new DataflowQueue()
+        final DataflowQueue b = new DataflowQueue()
+        final DataflowVariable c = new DataflowVariable()
+
+        FlowGraph fGraph = createFlowGraphInstance()
+
+        def op = fGraph.operator([a, b], [c]) {x, y ->
+            sleep(500) // deliberate delay
+            bindOutput 0, 2 * x + y
+        }
+
+        a << 5
+        b << 20
+
+        // fGraph.waitForAll()
+
+        assert !c.isBound()
     }
 
     public void testFlowGraphSimpleOperators() {
@@ -235,6 +263,8 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphForkingOperators() {
+        println("\n\ntestFlowGraphForkingOperator")
+
         final DataflowQueue a = new DataflowQueue()
         final DataflowQueue b = new DataflowQueue()
         final DataflowQueue c = new DataflowQueue()

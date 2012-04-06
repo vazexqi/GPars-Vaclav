@@ -113,22 +113,44 @@ public class FlowGraph {
      * @throws InterruptedException
      */
     public void waitForAll() throws InterruptedException {
+        boolean awaitNextRoundOfProcessing = false;
+
         lock.lock();
         try {
-            while (activeProcessors > 0) {
+            while (activeProcessors > 0 || awaitNextRoundOfProcessing) {
                 nonActiveCond.await();
 
-                if (messages > 0) continue; // Eventually some actor will wake up to process the remaining messages
+                if (messages > 0) {
+                    awaitNextRoundOfProcessing = true;
+                    continue; // Eventually some actor will wake up to process the remaining messages
+                }
+
+                awaitNextRoundOfProcessing = false;
             }
 
-        } finally
-
-        {
+        } finally {
             lock.unlock();
-            assert activeProcessors == 0;
-            assert messages == 0;
         }
 
+
+//        System.err.println("activeProcessors: " + activeProcessors);
+//        System.err.println("messages: " + messages);
+        assert activeProcessors == 0;
+        assert messages == 0;
+
+        terminateProcessors();
+
+    }
+
+    /**
+     * Terminating processors works by sending messages. This will flood the system with new
+     * groovyx.gpars.actor.Actor#TERMINATE_MESSAGE but we don't care anymore at this point about new messages in the
+     * system.
+     */
+    private void terminateProcessors() {
+        for (DataflowProcessor processor : processors) {
+            processor.terminate();
+        }
     }
 
 
@@ -148,6 +170,7 @@ public class FlowGraph {
 
         if (isFair) operator.actor.makeFair();
 
+        processors.add(operator);
         return operator.start();
     }
 
@@ -162,6 +185,7 @@ public class FlowGraph {
 
         if (isFair) operator.actor.makeFair();
 
+        processors.add(operator);
         return operator.start();
     }
 
