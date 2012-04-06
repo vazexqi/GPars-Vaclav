@@ -25,6 +25,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 public class FlowGraphUnfairActorTest extends GroovyTestCase {
 
+    protected FlowGraph createFlowGraphInstance(){
+        return new FlowGraph()
+    }
+
     public void testFlowGraphSingleOperator() {
         println("\n\ntestFlowGraphSingleOperator")
 
@@ -34,7 +38,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
         final DataflowVariable d = new DataflowVariable()
         final DataflowQueue e = new DataflowQueue()
 
-        FlowGraph fGraph = new FlowGraph()
+        FlowGraph fGraph = createFlowGraphInstance()
         def op = fGraph.operator([a, b, c], [d, e]) {x, y, z ->
             bindOutput 0, x + y + z
             bindOutput 1, x * y * z
@@ -56,7 +60,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
         final DataflowQueue a = new DataflowQueue()
         final DataflowQueue b = new DataflowQueue()
 
-        FlowGraph fGraph = new FlowGraph()
+        FlowGraph fGraph = createFlowGraphInstance()
 
         def op = fGraph.operator([a, a], [b]) {x, y ->
             bindOutput 0, x + y
@@ -80,7 +84,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
         final DataflowQueue b = new DataflowQueue()
         final DataflowQueue c = new DataflowQueue()
 
-        FlowGraph fGraph = new FlowGraph()
+        FlowGraph fGraph = createFlowGraphInstance()
 
         def op = fGraph.operator([a, b], [c]) {x, y ->
             bindOutput 0, 2 * x + y
@@ -106,7 +110,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
         a << 4
         a << 5
 
-        FlowGraph fGraph = new FlowGraph()
+        FlowGraph fGraph = createFlowGraphInstance()
 
         def op1 = fGraph.operator([a], [b]) {v ->
             bindOutput 2 * v
@@ -133,7 +137,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
         final DataflowChannel channel3 = new DataflowQueue()
         final List<Integer> outputs = new ArrayList<Integer>()
 
-        FlowGraph fGraph = new FlowGraph()
+        FlowGraph fGraph = createFlowGraphInstance()
 
         final DataflowProcessor operator1 = fGraph.operator([channel1], [channel2]) { input ->
             bindOutput input * input
@@ -168,7 +172,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
 
         final List<Integer> outputs = new ArrayList<Integer>()
 
-        FlowGraph fGraph = new FlowGraph()
+        FlowGraph fGraph = createFlowGraphInstance()
 
         final DataflowProcessor op1 = fGraph.operator([channel1], [channel2]) { input ->
             bindOutput input * input
@@ -204,7 +208,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
         final DataflowQueue c = new DataflowQueue()
         final DataflowQueue d = new DataflowQueue()
 
-        FlowGraph fGraph = new FlowGraph()
+        FlowGraph fGraph = createFlowGraphInstance()
 
         def op1 = fGraph.operator([a], [b, c, d], 5) {x ->
             bindAllOutputs x
@@ -230,7 +234,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
 
         List<DataflowChannel> channels = new ArrayList<DataflowChannel>()
 
-        FlowGraph fGraph = new FlowGraph()
+        FlowGraph fGraph = createFlowGraphInstance()
 
         channels.add(new DataflowQueue()) // First channel
 
@@ -261,7 +265,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
 
         List<DataflowChannel> channels = new ArrayList<DataflowChannel>()
 
-        FlowGraph fGraph = new FlowGraph()
+        FlowGraph fGraph = createFlowGraphInstance()
 
         for (int i = 0; i < LIMIT; i++)
             channels.add(new DataflowQueue())
@@ -303,7 +307,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
         final DataflowVariable d = new DataflowVariable()
         final DataflowQueue e = new DataflowQueue()
 
-        FlowGraph fGraph = new FlowGraph()
+        FlowGraph fGraph = createFlowGraphInstance()
         def op = fGraph.operator([a, b, c], [d, e]) {x, y, z ->
             bindOutput 0, x + y + z
             bindOutput 1, x * y * z
