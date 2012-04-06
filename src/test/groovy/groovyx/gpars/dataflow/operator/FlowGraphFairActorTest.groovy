@@ -224,8 +224,9 @@ public class FlowGraphFairActorTest extends GroovyTestCase {
     public void testFlowGraphLongRingOperators() {
         println("\n\ntestFlowGraphLongRingOperators")
 
-        int LIMIT = 20; // Number of channels
-        int TIMES_AROUND_RING = 3;
+        int LIMIT = 20 // Number of channels
+        int TIMES_AROUND_RING = 3
+        int globalCounter = 0
 
         List<DataflowChannel> channels = new ArrayList<DataflowChannel>()
 
@@ -238,11 +239,12 @@ public class FlowGraphFairActorTest extends GroovyTestCase {
             DataflowChannel input = channels.get(i)
             DataflowChannel output = channels.get((i + 1) % LIMIT)
 
-            int counter = 0; // Close over this variable
+            int localCounter = 0; // Close over this variable
             fGraph.operator([input], [output]) { value ->
-                if (counter <= TIMES_AROUND_RING) {
-                    bindOutput counter
-                    counter++
+                if (localCounter < TIMES_AROUND_RING) {
+                    bindOutput localCounter
+                    localCounter++
+                    globalCounter++
                 }
             }
         }
@@ -258,6 +260,7 @@ public class FlowGraphFairActorTest extends GroovyTestCase {
         //
 
         fGraph.waitForAll()
+        assert globalCounter == LIMIT * TIMES_AROUND_RING
     }
 
 }

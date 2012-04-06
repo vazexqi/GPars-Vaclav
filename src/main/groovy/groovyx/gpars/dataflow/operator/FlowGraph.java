@@ -53,7 +53,7 @@ public class FlowGraph {
 
     public FlowGraph(boolean isFair) {
         this();
-        isFair = true;
+        this.isFair = isFair;
     }
 
     public void decrementActiveProcessors() {
