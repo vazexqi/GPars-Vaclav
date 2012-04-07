@@ -19,6 +19,7 @@ package groovyx.gpars.dataflow.operator;
 import groovy.lang.Closure;
 import groovyx.gpars.group.DefaultPGroup;
 import groovyx.gpars.group.PGroup;
+import groovyx.gpars.scheduler.ResizeablePool;
 import net.jcip.annotations.GuardedBy;
 import org.codehaus.groovy.runtime.InvokerInvocationException;
 import org.codehaus.groovy.runtime.NullObject;
@@ -47,7 +48,7 @@ public class FlowGraph {
 
     public FlowGraph() {
         processors = new ArrayList<DataflowProcessor>();
-        pGroup = new DefaultPGroup();
+        pGroup = new DefaultPGroup(new ResizeablePool(true, 1));
     }
 
     public FlowGraph(boolean isFair) {
@@ -135,8 +136,8 @@ public class FlowGraph {
 
 //        System.err.println("activeProcessors: " + activeProcessors);
 //        System.err.println("messages: " + messages);
-        assert activeProcessors == 0;
-        assert messages == 0;
+//        assert activeProcessors == 0;
+//        assert messages == 0;
 
         terminateProcessors();
 

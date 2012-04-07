@@ -35,7 +35,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphSingleOperator() {
-        println("\n\ntestFlowGraphSingleOperator")
+//        println("\n\ntestFlowGraphSingleOperator")
 
         final DataflowVariable a = new DataflowVariable()
         final DataflowVariable b = new DataflowVariable()
@@ -63,7 +63,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testInverseFlowGraphSingleOperator() {
-        println("\n\ntestFlowGraphSingleOperator")
+//        println("\n\ntestFlowGraphSingleOperator")
 
         final DataflowVariable a = new DataflowVariable()
         final DataflowVariable b = new DataflowVariable()
@@ -92,7 +92,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphOperatorWithDoubleWaitOnChannel() {
-        println("\n\ntestFlowGraphOperatorWithDoubleWaitOnChannel")
+//        println("\n\ntestFlowGraphOperatorWithDoubleWaitOnChannel")
 
         final DataflowQueue a = new DataflowQueue()
         final DataflowQueue b = new DataflowQueue()
@@ -115,7 +115,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphNonCommutativeOperator() {
-        println("\n\ntestFlowGraphNonCommutativeOperator")
+//        println("\n\ntestFlowGraphNonCommutativeOperator")
 
         final DataflowQueue a = new DataflowQueue()
         final DataflowQueue b = new DataflowQueue()
@@ -137,7 +137,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testInverseFlowGraphNonCommutativeOperator() {
-        println("\n\ntestInverseFlowGraphNonCommutativeOperator")
+//        println("\n\ntestInverseFlowGraphNonCommutativeOperator")
 
         final DataflowQueue a = new DataflowQueue()
         final DataflowQueue b = new DataflowQueue()
@@ -159,7 +159,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphSimpleOperators() {
-        println("\n\ntestFlowGraphSimpleOperators")
+//        println("\n\ntestFlowGraphSimpleOperators")
 
         final DataflowQueue a = new DataflowQueue()
         final DataflowQueue b = new DataflowQueue()
@@ -190,7 +190,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphExternalOutputs() {
-        println("\n\ntestFlowGraphExternalOutputs")
+//        println("\n\ntestFlowGraphExternalOutputs")
 
         final DataflowChannel channel1 = new DataflowQueue()
         final DataflowChannel channel2 = new DataflowQueue()
@@ -222,7 +222,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphBranchingGraph() {
-        println("\n\ntestFlowGraphBranchingGraph")
+//        println("\n\ntestFlowGraphBranchingGraph")
 
         final DataflowChannel channel1 = new DataflowQueue()
         final DataflowChannel channel2 = new DataflowQueue()
@@ -263,7 +263,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphForkingOperators() {
-        println("\n\ntestFlowGraphForkingOperator")
+//        println("\n\ntestFlowGraphForkingOperator")
 
         final DataflowQueue a = new DataflowQueue()
         final DataflowQueue b = new DataflowQueue()
@@ -290,7 +290,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphLongLinkedOperators() {
-        println("\n\ntestFlowGraphLongLinkedOperators")
+//        println("\n\ntestFlowGraphLongLinkedOperators")
 
         int LIMIT = 20; // Number of channels
 
@@ -319,7 +319,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphLongRingOperators() {
-        println("\n\ntestFlowGraphLongRingOperators")
+//        println("\n\ntestFlowGraphLongRingOperators")
 
         int LIMIT = 50 // Number of channels
         int TIMES_AROUND_RING = 3
@@ -361,7 +361,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
     }
 
     public void testFlowGraphCompletedBeforeWaitForAll() {
-        println("\n\ntestFlowGraphCompletedBeforeWaitForAll")
+//        println("\n\ntestFlowGraphCompletedBeforeWaitForAll")
 
         final DataflowVariable a = new DataflowVariable()
         final DataflowVariable b = new DataflowVariable()
