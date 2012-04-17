@@ -238,9 +238,7 @@ public class FlowGraphUnfairActorTest extends GroovyTestCase {
             bindOutput input * input
         }
 
-        final List branchStreams = Arrays.asList(branch1, branch2)
-
-        final DataflowProcessor op2 = fGraph.operator([channel2], branchStreams) { input ->
+        final DataflowProcessor op2 = fGraph.operator([channel2], [branch1, branch2]) { input ->
             bindAllOutputsAtomically input
         }
 

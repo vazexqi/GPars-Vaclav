@@ -20,31 +20,21 @@ import groovy.lang.Closure;
 import groovyx.gpars.group.DefaultPGroup;
 import groovyx.gpars.group.PGroup;
 import groovyx.gpars.scheduler.FJPool;
-import net.jcip.annotations.GuardedBy;
+import jsr166y.CountedCompleter;
+import jsr166y.ForkJoinPool;
 import org.codehaus.groovy.runtime.InvokerInvocationException;
 import org.codehaus.groovy.runtime.NullObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class FlowGraph {
     private final List<DataflowProcessor> processors;
     private final PGroup pGroup;
     private boolean isFair;
-
-    final Lock lock = new ReentrantLock();
-    final Condition nonActiveCond = lock.newCondition();
-    final Condition noMessagesLeftCond = lock.newCondition();
-
-    @GuardedBy("lock")
-    private volatile int activeProcessors = 0;
-
-    @GuardedBy("lock")
-    private volatile int messages = 0;
+    private CountedCompleter graph;
+    private ForkJoinPool forkJoinPool;
 
     /**
      * Creates a new FlowGraph with a ForkJoinPool as its ThreadPool. All FlowGraphs use the ForkJoinPool to leverage
@@ -52,7 +42,16 @@ public class FlowGraph {
      */
     public FlowGraph() {
         processors = new ArrayList<DataflowProcessor>();
-        pGroup = new DefaultPGroup(new FJPool());
+
+        FJPool pool = new FJPool();
+        forkJoinPool = pool.getForkJoinPool();
+        pGroup = new DefaultPGroup(pool);
+        graph = new CountedCompleter() {
+            @Override
+            public void compute() {
+                tryComplete();
+            }
+        };
     }
 
     /**
@@ -63,50 +62,6 @@ public class FlowGraph {
     public FlowGraph(boolean isFair) {
         this();
         this.isFair = isFair;
-    }
-
-    public void decrementActiveProcessors() {
-        lock.lock();
-        try {
-            activeProcessors--;
-            assert activeProcessors >= 0;
-            if (activeProcessors == 0)
-                nonActiveCond.signal();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public void incrementActiveProcessors() {
-        lock.lock();
-        try {
-            activeProcessors++;
-            assert activeProcessors >= 0;
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public void messageProcessed() {
-        lock.lock();
-        try {
-            messages--;
-            assert messages >= 0;
-            if (messages == 0)
-                noMessagesLeftCond.signal();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public void messageArrived() {
-        lock.lock();
-        try {
-            messages++;
-            assert messages >= 0;
-        } finally {
-            lock.unlock();
-        }
     }
 
     /**
@@ -122,32 +77,8 @@ public class FlowGraph {
      *
      * @throws InterruptedException
      */
-    public void waitForAll() throws InterruptedException {
-        boolean awaitNextRoundOfProcessing = false;
-
-        lock.lock();
-        try {
-            while (activeProcessors > 0 || awaitNextRoundOfProcessing) {
-                nonActiveCond.await();
-
-                if (messages > 0) {
-                    awaitNextRoundOfProcessing = true;
-                    continue; // Eventually some actor will wake up to process the remaining messages
-                }
-
-                awaitNextRoundOfProcessing = false;
-            }
-
-        } finally {
-            lock.unlock();
-        }
-
-
-//        System.err.println("activeProcessors: " + activeProcessors);
-//        System.err.println("messages: " + messages);
-//        assert activeProcessors == 0;
-//        assert messages == 0;
-
+    public void waitForAll() {
+        forkJoinPool.invoke(graph);
         terminateProcessors();
         pGroup.shutdown();
 
@@ -207,34 +138,12 @@ public class FlowGraph {
 
         processorActor.setCore(processorActor.new ActorAsyncMessagingCore(code) {
 
-            void becomeActive() {
-//                System.err.println(processorActor + " became active");
-                FlowGraph.this.incrementActiveProcessors();
-            }
-
-            void becomePassive() {
-//                System.err.println(processorActor + " became passive");
-                FlowGraph.this.decrementActiveProcessors();
-            }
-
-            void messageArrived(Object message) {
-//                final ActorMessage actorMessage = (ActorMessage) message;
-//                System.err.println(message + " arrived");
-                FlowGraph.this.messageArrived();
-            }
-
-            void messageProcessed(Object message) {
-//                final ActorMessage actorMessage = (ActorMessage) message;
-//                System.err.println(message + " processed");
-                FlowGraph.this.messageProcessed();
-            }
-
             @Override
             public void store(final Object message) {
                 queue.add(message != null ? message : NullObject.getNullObject());
-                messageArrived(message);
+                graph.addToPendingCount(1);
                 if (activeUpdater.compareAndSet(this, PASSIVE, ACTIVE)) {
-                    becomeActive();
+                    graph.addToPendingCount(1);
                     threadPool.execute(this);
                 }
             }
@@ -242,7 +151,7 @@ public class FlowGraph {
             @Override
             protected void schedule() {
                 if (!queue.isEmpty() && activeUpdater.compareAndSet(this, PASSIVE, ACTIVE)) {
-                    becomeActive();
+                    graph.addToPendingCount(1);
                     threadPool.execute(this);
                 }
             }
@@ -260,7 +169,7 @@ public class FlowGraph {
                     Object message = queue.poll();
                     while (message != null) {
                         handleMessage(message);
-                        messageProcessed(message);
+                        graph.tryComplete();
                         if (Thread.interrupted()) throw new InterruptedException();
                         if (isFair() || !continueProcessingMessages()) break;
                         message = queue.poll();
@@ -272,7 +181,7 @@ public class FlowGraph {
                 } finally {
                     threadUnassigned();
                     activeUpdater.set(this, PASSIVE);
-                    becomePassive();
+                    graph.tryComplete();
                     if (continueProcessingMessages()) schedule();
                 }
             }
