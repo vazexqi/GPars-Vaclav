@@ -19,7 +19,7 @@ package groovyx.gpars.dataflow.operator;
 import groovy.lang.Closure;
 import groovyx.gpars.group.DefaultPGroup;
 import groovyx.gpars.group.PGroup;
-import groovyx.gpars.scheduler.ResizeablePool;
+import groovyx.gpars.scheduler.FJPool;
 import net.jcip.annotations.GuardedBy;
 import org.codehaus.groovy.runtime.InvokerInvocationException;
 import org.codehaus.groovy.runtime.NullObject;
@@ -46,11 +46,20 @@ public class FlowGraph {
     @GuardedBy("lock")
     private volatile int messages = 0;
 
+    /**
+     * Creates a new FlowGraph with a ForkJoinPool as its ThreadPool. All FlowGraphs use the ForkJoinPool to leverage
+     * its facility for CountedCompleter.
+     */
     public FlowGraph() {
         processors = new ArrayList<DataflowProcessor>();
-        pGroup = new DefaultPGroup(new ResizeablePool(true, 1));
+        pGroup = new DefaultPGroup(new FJPool());
     }
 
+    /**
+     * Creates a new FlowGraph with a ForkJoinPool as its ThreadPool. All FlowGraphs use the ForkJoinPool to leverage
+     * its facility for CountedCompleter. This version of the constructor makes all DataflowActors created through the
+     * FlowGraph, behave fairly.
+     */
     public FlowGraph(boolean isFair) {
         this();
         this.isFair = isFair;
@@ -140,6 +149,7 @@ public class FlowGraph {
 //        assert messages == 0;
 
         terminateProcessors();
+        pGroup.shutdown();
 
     }
 
