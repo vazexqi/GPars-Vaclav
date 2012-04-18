@@ -149,9 +149,6 @@ class FlowGraphForkingTest extends GroovyTestCase {
         final DataflowQueue c = new DataflowQueue()
         final DataflowQueue d = new DataflowQueue()
         final DataflowQueue e = new DataflowQueue()
-        final DefaultPGroup group = new DefaultPGroup(poolSize)
-
-        final int parties = Math.min(poolSize - 1, forks)
 
         FlowGraph fGraph = new FlowGraph()
 
