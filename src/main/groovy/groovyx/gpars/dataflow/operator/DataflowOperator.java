@@ -38,7 +38,7 @@ import java.util.Map;
  *         Date: Sep 9, 2009
  */
 @SuppressWarnings({"RawUseOfParameterizedType", "unchecked"})
-public final class DataflowOperator extends DataflowProcessor {
+public class DataflowOperator extends DataflowProcessor {
 
     /**
      * Creates an operator
@@ -62,13 +62,13 @@ public final class DataflowOperator extends DataflowProcessor {
         }
     }
 
-    private static boolean verifyChannelParameters(final Map channels, final int parameters) {
+    protected static boolean verifyChannelParameters(final Map channels, final int parameters) {
         if (channels == null) return true;
         final Collection inputs = (Collection) channels.get(INPUTS);
         return inputs == null || inputs.isEmpty() || parameters != inputs.size();
     }
 
-    private static String countInputChannels(final Map channels) {
+    protected static String countInputChannels(final Map channels) {
         if (channels == null) return "Null";
         final Collection inputs = (Collection) channels.get(INPUTS);
         return String.valueOf(inputs.size());

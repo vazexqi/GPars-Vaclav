@@ -85,6 +85,24 @@ public class FJPool implements Pool {
         return new ForkJoinPool(poolSize, ForkJoinPool.defaultForkJoinWorkerThreadFactory, uncaughtExceptionHandler, false);
     }
 
+    public static ForkJoinPool createForkJoinAsyncModePool(final int poolSize) {
+        assert poolSize > 0;
+
+        final Thread.UncaughtExceptionHandler uncaughtExceptionHandler = new Thread.UncaughtExceptionHandler() {
+            @Override
+            @SuppressWarnings({"UseOfSystemOutOrSystemErr"})
+            public void uncaughtException(final Thread t, final Throwable e) {
+                System.err.println(UNCAUGHT_EXCEPTION_OCCURRED_IN_ACTOR_POOL + t.getName());
+                e.printStackTrace(System.err);
+            }
+        };
+
+        /**
+         * Start in async mode. {@see java.util.concurrent.ForkJoinPool}
+         */
+        return new ForkJoinPool(poolSize, ForkJoinPool.defaultForkJoinWorkerThreadFactory, uncaughtExceptionHandler, true);
+    }
+
     /**
      * Resizes the thread pool to the specified value
      *

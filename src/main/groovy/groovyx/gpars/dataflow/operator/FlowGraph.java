@@ -20,6 +20,8 @@ import groovy.lang.Closure;
 import groovyx.gpars.group.DefaultPGroup;
 import groovyx.gpars.group.PGroup;
 import groovyx.gpars.scheduler.FJPool;
+import groovyx.gpars.scheduler.Pool;
+import groovyx.gpars.util.PoolUtils;
 import jsr166y.CountedCompleter;
 import jsr166y.ForkJoinPool;
 import org.codehaus.groovy.runtime.InvokerInvocationException;
@@ -28,11 +30,15 @@ import org.codehaus.groovy.runtime.NullObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Semaphore;
 
 public class FlowGraph {
     private final List<DataflowProcessor> processors;
     private final PGroup pGroup;
     private boolean isFair;
+
     private CountedCompleter graph;
     private ForkJoinPool forkJoinPool;
 
@@ -43,13 +49,17 @@ public class FlowGraph {
     public FlowGraph() {
         processors = new ArrayList<DataflowProcessor>();
 
-        FJPool pool = new FJPool();
+        FJPool pool = new FJPool(FJPool.createForkJoinAsyncModePool(PoolUtils.retrieveDefaultPoolSize()));
         forkJoinPool = pool.getForkJoinPool();
         pGroup = new DefaultPGroup(pool);
         graph = new CountedCompleter() {
             @Override
             public void compute() {
                 tryComplete();
+            }
+
+            public void task(Callable callable) {
+
             }
         };
     }
@@ -64,16 +74,24 @@ public class FlowGraph {
         this.isFair = isFair;
     }
 
+    public CountedCompleter getGraph() {
+        return graph;
+    }
+
+    //TODO: Using this requires some caution since it seems to cause some race condition on the wait
+    public void incrementWaitCount() {
+        getGraph().addToPendingCount(1);
+    }
+
+    public void decrementWaitCount() {
+        getGraph().tryComplete();
+    }
+
     /**
      * This is deeply linked to the internals of the DataflowProcessorActor. The terminating condition is the pair (No
-     * Active Processors, No More Messages). Because of the way that DataflowProcessorActors work, it is sufficient to
-     * check first that all actors are no longer active. Then we check the number of messages left. If the number of
-     * messages left is greater than zero, the semantics of DataflowProcessorActor means that <i>eventually</i> at least
-     * one actor will wake up to process the message.
-     * <p/>
-     * In general, this assumption is not true of all actor systems. Some actor systems (even the Actor based class in
-     * GPars) can leave messages in the mailbox even when they are technically done already. In those cases, it is not
-     * possible to use this method for checking termination.
+     * Active Processors, No More Messages). In general, this assumption is not true of all actor systems. Some actor
+     * systems (even the Actor based class in GPars) can leave messages in the mailbox even when they are technically
+     * done already. In those cases, it is not possible to use this method for checking termination.
      *
      * @throws InterruptedException
      */
@@ -107,7 +125,7 @@ public class FlowGraph {
         params.put(DataflowProcessor.INPUTS, inputChannels);
         params.put(DataflowProcessor.OUTPUTS, outputChannels);
 
-        final DataflowOperator operator = new DataflowOperator(pGroup, params, code);
+        final DataflowOperator operator = new FlowGraphDataflowOperator(pGroup, params, code);
         substituteOperatorCore(operator);
 
         if (isFair) operator.actor.makeFair();
@@ -122,7 +140,7 @@ public class FlowGraph {
         params.put(DataflowProcessor.OUTPUTS, outputChannels);
         params.put(DataflowProcessor.MAX_FORKS, maxForks);
 
-        final DataflowOperator operator = new DataflowOperator(pGroup, params, code);
+        final DataflowOperator operator = new FlowGraphDataflowOperator(pGroup, params, code);
         substituteOperatorCore(operator);
 
         if (isFair) operator.actor.makeFair();
@@ -130,6 +148,69 @@ public class FlowGraph {
         processors.add(operator);
         return operator.start();
     }
+
+    private class FlowGraphDataflowOperator extends DataflowOperator {
+
+        /**
+         * Creates an operator After creation the operator needs to be started using the start() method.
+         *
+         * @param group    The group the thread pool of which o use
+         * @param channels A map specifying "inputs" and "outputs" - dataflow channels (instances of the DataflowQueue
+         *                 or DataflowVariable classes) to use for inputs and outputs
+         * @param code     The operator's body to run each time all inputs have a value to read
+         */
+        public FlowGraphDataflowOperator(final PGroup group, final Map channels, final Closure code) {
+            super(group, channels, code);
+            final int parameters = code.getMaximumNumberOfParameters();
+            if (verifyChannelParameters(channels, parameters))
+                throw new IllegalArgumentException("The operator's body accepts " + parameters + " parameters while it is given " + countInputChannels(channels) + " input streams. The numbers must match.");
+            if (shouldBeMultiThreaded(channels)) {
+                checkMaxForks(channels);
+                this.actor = new FlowGraphForkingDataflowOperator(this, group, extractOutputs(channels), extractInputs(channels), (Closure) code.clone(), (Integer) channels.get(MAX_FORKS));
+            } else {
+                this.actor = new DataflowOperatorActor(this, group, extractOutputs(channels), extractInputs(channels), (Closure) code.clone());
+            }
+        }
+
+    }
+
+    private class FlowGraphForkingDataflowOperator extends DataflowOperatorActor {
+        protected final Semaphore semaphore;
+        protected final Pool threadPool;
+
+        FlowGraphForkingDataflowOperator(final DataflowOperator owningOperator, final PGroup group, final List outputs, final List inputs, final Closure code, final int maxForks) {
+            super(owningOperator, group, outputs, inputs, code);
+            this.semaphore = new Semaphore(maxForks);
+            this.threadPool = group.getThreadPool();
+        }
+
+        @Override
+        void startTask(final List results) {
+            try {
+                semaphore.acquire();
+                graph.addToPendingCount(1);
+            } catch (InterruptedException e) {
+                throw new IllegalStateException(CANNOT_OBTAIN_THE_SEMAPHORE_TO_FORK_OPERATOR_S_BODY, e);
+            }
+            threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        FlowGraphForkingDataflowOperator.super.startTask(results);
+                    } finally {
+                        semaphore.release();
+                        graph.tryComplete();
+                    }
+                }
+            });
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //
+    // AsyncMessagingCore
+    //
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // A rather hackish way to reimplement the innards of the Actor's messaging core
     private void substituteOperatorCore(final DataflowOperator operator) {
