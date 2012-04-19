@@ -16,12 +16,6 @@
 
 package groovyx.gpars.dataflow.operator
 
-import groovyx.gpars.dataflow.Dataflow
-import groovyx.gpars.dataflow.DataflowChannel
-import groovyx.gpars.dataflow.DataflowQueue
-import groovyx.gpars.dataflow.DataflowVariable
-import java.util.concurrent.atomic.AtomicInteger
-
 public class FlowGraphFairActorTest extends FlowGraphUnfairActorTest {
 
 @Override

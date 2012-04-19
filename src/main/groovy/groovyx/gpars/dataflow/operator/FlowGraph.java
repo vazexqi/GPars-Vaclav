@@ -31,8 +31,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class FlowGraph {
     private final List<DataflowProcessor> processors;
@@ -56,10 +56,6 @@ public class FlowGraph {
             @Override
             public void compute() {
                 tryComplete();
-            }
-
-            public void task(Callable callable) {
-
             }
         };
     }
@@ -173,35 +169,59 @@ public class FlowGraph {
 
     }
 
+    /**
+     * This class facilitates running multiple instances of the actor body in parallel (according to maxForks). It
+     * mimics the behavior of {@see groovyx.gpars.dataflow.operator.ForkingDataflowOperatorActor} except that it does
+     * not use a semaphore to control its concurrency. Acquiring a semaphore is a possibly blocking operation which
+     * could deadlock the entire flow graph when run on top of a non-resizable thread pool like ForkJoinPool.
+     */
     private class FlowGraphForkingDataflowOperator extends DataflowOperatorActor {
-        protected final Semaphore semaphore;
-        protected final Pool threadPool;
+        private final Pool threadPool;
+        private final ConcurrentLinkedQueue<List> queue;
+        private volatile AtomicInteger currentConcurrency = new AtomicInteger();
+        private final int maxForks;
 
         FlowGraphForkingDataflowOperator(final DataflowOperator owningOperator, final PGroup group, final List outputs, final List inputs, final Closure code, final int maxForks) {
             super(owningOperator, group, outputs, inputs, code);
-            this.semaphore = new Semaphore(maxForks);
+            this.queue = new ConcurrentLinkedQueue<List>();
             this.threadPool = group.getThreadPool();
+            this.maxForks = maxForks;
+            this.currentConcurrency.set(1);
         }
 
         @Override
         void startTask(final List results) {
-            try {
-                semaphore.acquire();
-                graph.addToPendingCount(1);
-            } catch (InterruptedException e) {
-                throw new IllegalStateException(CANNOT_OBTAIN_THE_SEMAPHORE_TO_FORK_OPERATOR_S_BODY, e);
+            if (currentConcurrency.get() <= maxForks) {
+                scheduleTask(results);
+            } else {
+                queue.add(results);
             }
+        }
+
+        private void scheduleTask(final List results) {
+            currentConcurrency.getAndIncrement();
+            graph.addToPendingCount(1);
             threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
                     try {
                         FlowGraphForkingDataflowOperator.super.startTask(results);
                     } finally {
-                        semaphore.release();
+                        currentConcurrency.getAndDecrement();
+                        schedulePendingIfAny();
                         graph.tryComplete();
                     }
                 }
             });
+        }
+
+        private void schedulePendingIfAny() {
+            if (currentConcurrency.get() <= maxForks) {
+                List result = queue.poll();
+                if (result != null) {
+                    scheduleTask(result);
+                }
+            }
         }
     }
 

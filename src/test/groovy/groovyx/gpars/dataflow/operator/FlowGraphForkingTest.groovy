@@ -16,9 +16,9 @@
 
 package groovyx.gpars.dataflow.operator
 
+import groovyx.gpars.dataflow.DataflowChannel
 import groovyx.gpars.dataflow.DataflowQueue
 import groovyx.gpars.dataflow.DataflowVariable
-import groovyx.gpars.group.DefaultPGroup
 
 import static groovyx.gpars.dataflow.Dataflow.task
 
@@ -135,15 +135,59 @@ class FlowGraphForkingTest extends GroovyTestCase {
 
     }
 
+    public void testFlowGraphForkingLongLinkedOperators(){
+        _testFlowGraphForkingLongLinkedOperators(5,1);
+        _testFlowGraphForkingLongLinkedOperators(5,2);
+        _testFlowGraphForkingLongLinkedOperators(5,3);
+        _testFlowGraphForkingLongLinkedOperators(5,4);
+        _testFlowGraphForkingLongLinkedOperators(5,5);
+        _testFlowGraphForkingLongLinkedOperators(10,5);
+        _testFlowGraphForkingLongLinkedOperators(20,5);
+        _testFlowGraphForkingLongLinkedOperators(30,5);
+        _testFlowGraphForkingLongLinkedOperators(40,5);
+
+    }
+
+    public void _testFlowGraphForkingLongLinkedOperators(int nodes, int maxForks) {
+        int LIMIT = nodes; // Number of channels
+
+        List<DataflowChannel> channels = new ArrayList<DataflowChannel>()
+
+        FlowGraph fGraph = createFlowGraphInstance()
+
+        channels.add(new DataflowQueue()) // First channel
+
+        for (int i = 0; i < LIMIT; i++) {
+            channels.add(new DataflowQueue())
+
+            DataflowProcessor op = fGraph.operator([channels.get(i)], [channels.get(i + 1)], maxForks) {input ->
+                sleep(1)
+                bindOutput input
+            }
+        }
+        final IntRange range = 1..100
+        range.each {channels.get(0) << it}
+
+        // This is the topology
+        // --ch1--> op1 --ch2--> op2 --ch3 --> op3 --ch4-->
+
+        fGraph.waitForAll()
+
+        def bsBound = range.collect {channels.get(LIMIT).isBound()}
+        assertFalse bsBound.contains(false)
+        def bs = range.collect {channels.get(LIMIT).val}
+        assert bs.size() == range.to
+    }
+
     public void testParallelism() {
         100.times {
-            performParallelismTest(5, 4)
-            performParallelismTest(5, 5)
-            performParallelismTest(3, 5)
+            performParallelismTest(4)
+            performParallelismTest(5)
+            performParallelismTest(5)
         }
     }
 
-    private void performParallelismTest(int poolSize, forks) {
+    private void performParallelismTest(int forks) {
         final DataflowVariable a = new DataflowVariable()
         final DataflowVariable b = new DataflowVariable()
         final DataflowQueue c = new DataflowQueue()
