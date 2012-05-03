@@ -47,17 +47,7 @@ public class FlowGraph {
      * its facility for CountedCompleter.
      */
     public FlowGraph() {
-        processors = new ArrayList<DataflowProcessor>();
-
-        FJPool pool = new FJPool(FJPool.createForkJoinAsyncModePool(PoolUtils.retrieveDefaultPoolSize()));
-        forkJoinPool = pool.getForkJoinPool();
-        pGroup = new DefaultPGroup(pool);
-        graph = new CountedCompleter() {
-            @Override
-            public void compute() {
-                tryComplete();
-            }
-        };
+        this(PoolUtils.retrieveDefaultPoolSize());
     }
 
     /**
@@ -66,8 +56,22 @@ public class FlowGraph {
      * FlowGraph, behave fairly.
      */
     public FlowGraph(boolean isFair) {
-        this();
+        this(PoolUtils.retrieveDefaultPoolSize());
         this.isFair = isFair;
+    }
+
+    public FlowGraph(final int concurrencyLevel) {
+        processors = new ArrayList<DataflowProcessor>();
+
+        FJPool pool = new FJPool(FJPool.createForkJoinAsyncModePool(concurrencyLevel));
+        forkJoinPool = pool.getForkJoinPool();
+        pGroup = new DefaultPGroup(pool);
+        graph = new CountedCompleter() {
+            @Override
+            public void compute() {
+                tryComplete();
+            }
+        };
     }
 
     public CountedCompleter getGraph() {
