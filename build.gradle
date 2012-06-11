@@ -31,6 +31,8 @@ apply plugin: 'eclipse'
 apply plugin: 'idea'
 
 defaultTasks 'test'
+defaultTasks 'runBenchmarks'
+
 archivesBaseName = 'gpars'
 group = 'org.codehaus.gpars'
 version = '1.0-SNAPSHOT'
