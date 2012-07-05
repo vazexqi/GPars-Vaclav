@@ -28,11 +28,11 @@ import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 
 public class BenchmarkThroughputComputationStaticActorCaliper extends Benchmark {
-    @Param({"1", "2", "4", "6", "8",
+    @Param({"1", "2", "4"/*, "6", "8",
             "10", "12", "14", "16", "18",
             "20", "22", "24", "26", "28",
             "30", "32", "34", "36", "38",
-            "40", "42", "44", "46", "48"}
+            "40", "42", "44", "46", "48"*/}
     )
     int numberOfClients;
 
@@ -49,7 +49,7 @@ public class BenchmarkThroughputComputationStaticActorCaliper extends Benchmark 
     DefaultPGroup group;
     long repeatsPerClient;
     int repeatFactor = 500;
-    int repeat = 30000 * repeatFactor; //total number of messages that needs to be sent
+    int repeat = 500 * repeatFactor; //total number of messages that needs to be sent
 
     public int totalMessages() {
         return repeat;
