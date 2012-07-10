@@ -25,109 +25,35 @@ import groovyx.gpars.group.DefaultPGroup;
 import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.CountDownLatch;
 
-<<<<<<< HEAD
 public class BenchmarkThroughputComputationStaticActorCaliper extends BenchmarkCaliper {
 
     @Param({"1", "2", "4", "6", "8",
-=======
-public class BenchmarkThroughputComputationStaticActorCaliper extends Benchmark {
-    @Param({"1", "2", "4"/*, "6", "8",
->>>>>>> origin/Temp-ServerMachineTest
             "10", "12", "14", "16", "18",
             "20", "22", "24", "26", "28",
             "30", "32", "34", "36", "38",
-            "40", "42", "44", "46", "48"*/}
+            "40", "42", "44", "46", "48"}
     )
     int numberOfClients;
-<<<<<<< HEAD
-    @VmParam({"-server"})
-    String server;
-    @VmParam({"-Xms512M"})
-    String xms;
-    @VmParam({"-Xmx1024M"})
-    String xmx;
-    @VmParam({"-XX:+UseParallelGC"})
-    String gc;
+
+    @VmParam String server;
+    @VmParam String xms;
+    @VmParam String xmx;
+    @VmParam String gc;
 
     BenchmarkThroughputComputationStaticActorCaliper(){
         super(500, BenchmarkCaliper.STATIC_RUN, ComputationStaticClient.class, ComputationStaticDestination.class);
     }
-=======
-
-
-    @VmParam({"-server"}) String server;
-    @VmParam({"-Xms512M"}) String xms;
-    @VmParam({"-Xmx1024M"}) String xmx;
-    @VmParam({"-XX:+UseParallelGC"}) String gc;
-
-    int maxClients = 4;
-    public static final int RUN = 1;
-    public static final int MESSAGE = 2;
-    final int maxRunDurationMillis = 20000;
-    DefaultPGroup group;
-    long repeatsPerClient;
-    int repeatFactor = 500;
-    int repeat = 500 * repeatFactor; //total number of messages that needs to be sent
->>>>>>> origin/Temp-ServerMachineTest
 
     public int totalMessages() {
         return repeat;
     }
 
     public long timeComputationStaticDispatchActorThroughput(int reps) {
-<<<<<<< HEAD
         long time=0;
         try {
             time = super.timeThroughput(reps, numberOfClients);
-        } catch (NoSuchMethodException e) {
+        } catch (Exception e) {
             e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (InstantiationException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-=======
-        long totalTime = 0;
-        group = new DefaultPGroup(new FJPool(maxClients));
-        repeatsPerClient = repeat / numberOfClients;//MESSAGE quota for each pair of actors
-
-        for (int i = 0; i < reps; i++) {
-
-            CountDownLatch latch = new CountDownLatch(numberOfClients);
-            ArrayList<ComputationDestinationActor> destinations = new ArrayList<ComputationDestinationActor>();
-            ArrayList<ComputationClientActor> clients = new ArrayList<ComputationClientActor>();
-
-            for (int j = 0; j < numberOfClients; j++) {
-                destinations.add((ComputationDestinationActor) new ComputationDestinationActor(group).start());
-
-            }
-            for (ComputationDestinationActor destination : destinations) {
-                clients.add((ComputationClientActor) new ComputationClientActor(destination, latch, repeatsPerClient, group).start());
-            }
-
-            long startTime = System.nanoTime();//start timing
-
-            for (ComputationClientActor client : clients) {
-                client.send(RUN);
-            }
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            totalTime += System.nanoTime() - startTime;//stop timing
-
-            for (ComputationClientActor client : clients) {
-                client.terminate();
-            }
-            for (ComputationDestinationActor destination : destinations) {
-                destination.terminate();
-            }
->>>>>>> origin/Temp-ServerMachineTest
         }
         return time;
     }
