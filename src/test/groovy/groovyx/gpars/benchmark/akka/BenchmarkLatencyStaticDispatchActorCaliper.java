@@ -29,16 +29,16 @@ import java.util.concurrent.CountDownLatch;
 
 public class BenchmarkLatencyStaticDispatchActorCaliper extends BenchmarkCaliper {
     @Param({"1", "2", "4"}) int numberOfClients;
-    @VmParam String server;
-    @VmParam String xms;
-    @VmParam String xmx;
-    @VmParam String gc;
+//    @VmParam String server;
+//    @VmParam String xms;
+//    @VmParam String xmx;
+//    @VmParam String gc;
 
     BenchmarkLatencyStaticDispatchActorCaliper(){
         super(200, new LatencyMessage(0, null, STATIC_RUN), new LatencyMessage(0, null, STATIC_POISON),LatencyStaticClient.class, LatencyStaticDestination.class, LatencyStaticWayPoint.class);
     }
 
-    public long latencyStaticDispatchActorLatency(int dummy){
+    public long latencyLatencyStaticDispatchActor(int dummy){
         long time = 0;
         try {
             time = timeLatency(numberOfClients);
