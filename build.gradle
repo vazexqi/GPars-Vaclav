@@ -31,7 +31,6 @@ apply plugin: 'eclipse'
 apply plugin: 'idea'
 
 defaultTasks 'test'
-defaultTasks 'runBenchmarks'
 
 archivesBaseName = 'gpars'
 group = 'org.codehaus.gpars'
@@ -118,9 +117,18 @@ dependencies {
     cover 'net.sourceforge.cobertura:cobertura:1.9.4.1'
     testRuntime 'net.sourceforge.cobertura:cobertura:1.9.4.1'
 }
-task runBenchmarks(dependsOn: 'classes', type: JavaExec){
-    main= 'groovyx.gpars.benchmark.BenchmarkRunner'
-    classpath= sourceSets.test.runtimeClasspath
+
+task runBenchmarks(type: JavaExec) {
+    def gcArg = "-XX:+UseParallelGC"
+
+    // On Windows, calling the JVM with extended params requires multiple levels of quoting
+    if (System.getProperty('os.name').matches(".*Windows.*")) {
+        gcArg = '"""-XX:+UseParallelGC"""'
+    }
+    description = 'Runs benchmarks measuring the throughput and latency of actors in GPars'
+    main = 'groovyx.gpars.benchmark.BenchmarkRunner'
+    classpath = sourceSets.test.runtimeClasspath
+    args = ["-Jgc=${gcArg}", '-Jxms=-Xms512M', '-Jxmx=-Xmx1024M', '-Jserver=-server']
 }
 
 //  To get the details of the "unchecked" issues.
