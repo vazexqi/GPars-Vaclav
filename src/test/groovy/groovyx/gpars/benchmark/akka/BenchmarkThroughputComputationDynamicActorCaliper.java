@@ -19,13 +19,12 @@ package groovyx.gpars.benchmark.akka;
 import com.google.caliper.Param;
 import com.google.caliper.api.VmParam;
 import com.google.caliper.runner.CaliperMain;
-import groovyx.gpars.actor.StaticDispatchActor;
+import groovyx.gpars.actor.DynamicDispatchActor;
 import groovyx.gpars.group.DefaultPGroup;
 
 import java.util.concurrent.CountDownLatch;
 
-public class BenchmarkThroughputComputationStaticActorCaliper extends BenchmarkCaliper {
-
+public class BenchmarkThroughputComputationDynamicActorCaliper extends BenchmarkCaliper {
     @Param({"1", "2", "4", "6", "8",
             "10", "12", "14", "16", "18",
             "20", "22", "24", "26", "28",
@@ -33,17 +32,17 @@ public class BenchmarkThroughputComputationStaticActorCaliper extends BenchmarkC
             "40", "42", "44", "46", "48"}
     )
     int numberOfClients;
-
     @VmParam String server;
     @VmParam String xms;
     @VmParam String xmx;
     @VmParam String gc;
 
-    BenchmarkThroughputComputationStaticActorCaliper(){
-        super(500, BenchmarkCaliper.STATIC_RUN, ComputationStaticClient.class, ComputationStaticDestination.class);
+
+    BenchmarkThroughputComputationDynamicActorCaliper(){
+        super(500, DYNAMIC_RUN, ComputationDynamicClient.class, ComputationDynamicDestination.class);
     }
 
-    public long timeThroughputComputationStaticActor(int reps) {
+    public long timeThroughputComputationDynamicActor(int reps) {
         long time=0;
         try {
             time = super.timeThroughput(reps, numberOfClients);
@@ -54,51 +53,46 @@ public class BenchmarkThroughputComputationStaticActorCaliper extends BenchmarkC
     }
 
     public static void main(String[] args) {
-        CaliperMain.main(BenchmarkThroughputComputationStaticActorCaliper.class, args);
+        CaliperMain.main(BenchmarkThroughputComputationDynamicActorCaliper.class, args);
     }
+
 
 }
 
-class ComputationStaticClient extends StaticDispatchActor<Integer> {
 
-    long sent = 0L;
-    long received = 0L;
-    ComputationStaticDestination actor;
-    long repeatsPerClient;
-    CountDownLatch latch;
-
+class ComputationDynamicClient extends DynamicDispatchActor {
     private double _pi = 0.0;
     private long currentPosition = 0L;
     int nrOfElements = 1000;
 
+    long sent = 0L;
+    long received = 0L;
+    ComputationDynamicDestination actor;
+    long repeatsPerClient;
+    CountDownLatch latch;
 
-    public ComputationStaticClient(ComputationStaticDestination actor, CountDownLatch latch, long repeatsPerClient, DefaultPGroup group) {
+    public ComputationDynamicClient(ComputationDynamicDestination actor, CountDownLatch latch, long repeatsPerClient, DefaultPGroup group) {
         this.parallelGroup = group;
         this.actor = actor;
         this.repeatsPerClient = repeatsPerClient;
         this.latch = latch;
     }
 
-    @Override
-    public void onMessage(Integer msg) {
-        if (msg.equals(BenchmarkCaliper.STATIC_MESSAGE)) {
-            received += 1;
-            calculatePi();
-            if (sent < repeatsPerClient) {
-                actor.send(msg);
-                sent += 1;
-            } else if (received >= repeatsPerClient) {
-                latch.countDown();
-                sent = 0;
-                received = 0;
-            }
+    void onMessage(final DynamicMessage msg) {
+        received += 1;
+        calculatePi();
+        if (sent < repeatsPerClient) {
+            actor.send(msg);
+            sent += 1;
+        } else if (received >= repeatsPerClient) {
+            latch.countDown();
         }
+    }
 
-        if (msg.equals(BenchmarkCaliper.STATIC_RUN)) {
-            for (int i = 0; i < (Math.min(repeatsPerClient, 1000L)); i++) {
-                actor.send(BenchmarkCaliper.STATIC_MESSAGE);
-                sent += 1;
-            }
+    void onMessage(final DynamicRun msg) {
+        for (int i = 0; i < Math.min(repeatsPerClient, 1000L); i++) {
+            actor.send(BenchmarkCaliper.DYNAMIC_MESSAGE);
+            sent += 1;
         }
     }
 
@@ -115,23 +109,23 @@ class ComputationStaticClient extends StaticDispatchActor<Integer> {
     }
 }
 
-class ComputationStaticDestination extends StaticDispatchActor<Integer> {
-    private double pi = 0.0;
+class ComputationDynamicDestination extends DynamicDispatchActor {
+
+    private double _pi = 0.0;
     private long currentPosition = 0L;
     int nrOfElements = 1000;
 
-    public ComputationStaticDestination(DefaultPGroup group) {
+    public ComputationDynamicDestination(DefaultPGroup group) {
         this.parallelGroup = group;
     }
 
-    @Override
-    public void onMessage(Integer msg) {
+    void onMessage(final DynamicMessage msg) {
         calculatePi();
         getSender().send(msg);
     }
 
     void calculatePi() {
-        pi += calculateDecimals(currentPosition);
+        _pi += calculateDecimals(currentPosition);
         currentPosition += nrOfElements;
     }
 
@@ -141,4 +135,5 @@ class ComputationStaticDestination extends StaticDispatchActor<Integer> {
             acc += 4.0 * (1 - (i % 2) * 2) / (2 * i + 1);
         return acc;
     }
+
 }
